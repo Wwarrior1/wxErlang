@@ -114,4 +114,4 @@ loop(State) ->
 
   end.
 
-send() -> ok. %zbiera wpisany tekst ze wszystkich trzech okienek a później go wysyła na meila
+send() -> ok.%zbiera wpisany tekst ze wszystkich trzech okienek a później go wysyła na meila
