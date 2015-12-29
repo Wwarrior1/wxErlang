@@ -27,7 +27,7 @@ make_window() ->
   T1001 = wxTextCtrl:new(Panel, 1001,[{size, {410, 140}}]), %inputbox1 i jego wymiary
   T1002 = wxTextCtrl:new(Panel, 1001,[{size, {410, 140}}]), %inputbox2 i jego wymiary
   T1003 = wxTextCtrl:new(Panel, 1001,[{size, {410, 140}}]), %inputbox3 i jego wymiary
-  %%ST2001 = wxStaticText:new(Panel, 2001,"Output Area", []), jakiś output może się później przydać
+  ST2001 = wxStaticText:new(Panel, 2001,"Do końca: 10 min 0 sek", []),
   B102  = wxButton:new(Panel, ?wxID_EXIT, [{label, "E&xit"}]), %button Exit
   B101  = wxButton:new(Panel, 101, [{label, "&Send"}]),         %button Send
 
@@ -47,10 +47,12 @@ make_window() ->
   %%Tutaj jest zabawa ze wsadzaniem buttonów/inputboxów w sizery i dodawanie marginesów
   wxSizer:add(InputSizer1, T1001,  []),
   wxSizer:add(InputSizer2, T1002, []),
-  wxSizer:add(InputSizer3, T1003,   []),
+  wxSizer:add(InputSizer3, T1003,  []),
   wxSizer:addSpacer(DownSizer, 5),  %spacer
   wxSizer:add(DownSizer, B101,   []),
-  wxSizer:addSpacer(DownSizer, 235),  %spacer
+  wxSizer:addSpacer(DownSizer, 50),  %spacer
+  wxSizer:add(DownSizer, ST2001,   []),
+  wxSizer:addSpacer(DownSizer, 65),  %spacer
   wxSizer:add(DownSizer, B102,   []),
   wxSizer:addSpacer(MainSizer, 20),  %spacer
   wxSizer:add(MainSizer, InputSizer1,   []),
@@ -69,11 +71,47 @@ make_window() ->
   wxPanel:setSizer(Panel, OuterSizer),
 
   wxFrame:show(Frame),
-  ok.  %the return value will go here, soon
+
+  % create two listeners
+  wxFrame:connect( Frame, close_window),
+  wxPanel:connect(Panel, command_button_clicked),
+
+  %% the return value, which is stored in State
+  {Frame, T1001, T1002, T1003, ST2001}.
 %%--------------------------------------------------------------------------------------------
 %%WARSTWA LOGICZNA
 %%--------------------------------------------------------------------------------------------
-loop(State) ->  State, %stub
-  ok.
+loop(State) ->
+  {Frame, T1001, T1002, T1003, ST2001}  = State,  % break State back down into its components
+  io:format("--waiting in the loop--~n", []), % optional, feedback to the shell
+  receive
+  % a connection get the close_window signal
+  % and sends this message to the server
+    #wx{event=#wxClose{}} ->
+      io:format("~p Closing window ~n",[self()]), %optional, goes to shell
+      %now we use the reference to Frame
+      wxWindow:destroy(Frame),  %closes the window
+      ok;  % we exit the loop
+
+    #wx{id = ?wxID_EXIT, event=#wxCommand{type = command_button_clicked} } ->
+%     {wx, ?wxID_EXIT, _,_,_} ->
+      %this message is sent when the exit button is clicked.
+      %The exit button is given ID ?wxID_EXIT = 5006 (from wx.hrl).
+      %the other fields in the tuple are not important to us.
+      io:format("~p Closing window ~n",[self()]), %optional, goes to shell
+      wxWindow:destroy(Frame),
+      ok;  % we exit the loop
+
+%     {wx, 101, _,_,_} ->
+%            loop(State);
+
+    Msg ->
+      %for now, everything else ends up here
+      io:format("loop default triggered: Got ~n ~p ~n", [Msg]),
+      %The next line is here just to remove compiler warnings
+      T1001, T1002, T1003, ST2001,
+      loop(State)
+
+  end.
 
 send() -> ok. %zbiera wpisany tekst ze wszystkich trzech okienek a później go wysyła na meila
