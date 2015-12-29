@@ -43,7 +43,7 @@ make_window(Window) ->
       Inputbox1 = wxTextCtrl:new(Panel, 1001, [{size, {410, 140}}]),     % inputbox1 i jego wymiary
       Inputbox2 = wxTextCtrl:new(Panel, 1002, [{size, {410, 140}}]),     % inputbox2 i jego wymiary
       Inputbox3 = wxTextCtrl:new(Panel, 1003, [{size, {410, 140}}]),     % inputbox3 i jego wymiary
-      %%ST2001 = wxStaticText:new(Panel, 2001,"Output Area", []),   %jakiś output może się później przydać
+      ST2001 = wxStaticText:new(Panel, 2001,"Do końca: 10 min 0 sek", []),
 
       B102  = wxButton:new(Panel, ?wxID_EXIT, [{label, "&Exit"}]),  % button Exit
       % ::INFO:: More about Standard IDs here: http://docs.wxwidgets.org/trunk/defs_8h.html#ac66d0a09761e7d86b2ac0b2e0c6a8cbb
@@ -69,17 +69,19 @@ make_window(Window) ->
         wxSizer:add(InputSizer2, Inputbox2, []),
         wxSizer:add(InputSizer3, Inputbox3, []),
         wxSizer:addSpacer(DownSizer, 5),  %spacer
-        wxSizer:add(DownSizer, B101, []),
-        wxSizer:addSpacer(DownSizer, 235),  %spacer
-        wxSizer:add(DownSizer, B102, []),
+        wxSizer:add(DownSizer, B101,   []),
+        wxSizer:addSpacer(DownSizer, 50),  %spacer
+        wxSizer:add(DownSizer, ST2001,   []),
+        wxSizer:addSpacer(DownSizer, 65),  %spacer
+        wxSizer:add(DownSizer, B102,   []),
         wxSizer:addSpacer(MainSizer, 20),  %spacer
-        wxSizer:add(MainSizer, InputSizer1, []),
+        wxSizer:add(MainSizer, InputSizer1,   []),
         wxSizer:addSpacer(MainSizer, 15),  %spacer
-        wxSizer:add(MainSizer, InputSizer2, []),
+        wxSizer:add(MainSizer, InputSizer2,   []),
         wxSizer:addSpacer(MainSizer, 15),  %spacer
-        wxSizer:add(MainSizer, InputSizer3, []),
+        wxSizer:add(MainSizer, InputSizer3,   []),
         wxSizer:addSpacer(MainSizer, 15),  %spacer
-        wxSizer:add(MainSizer, DownSizer, []),
+        wxSizer:add(MainSizer, DownSizer,   []),
 
         wxSizer:addSpacer(OuterSizer, 20), % spacer
         wxSizer:add(OuterSizer, MainSizer, []),
@@ -96,19 +98,22 @@ make_window(Window) ->
 loop(Frame) ->
   % ----------    EVENT HANDLERS    ----------
   % ::INFO:: more about handlers here: www.erlang.org/doc/man/wxEvtHandler.html
+  io:format("--waiting in the loop--~n", []), % optional, feedback to the shell
   receive
     % Standard closing window
     #wx{event=#wxClose{type=close_window}} ->
       io:format("~p Closing window ~n",[self()]),
-      wxFrame:destroy(Frame),
-      ok;
+      %now we use the reference to Frame
+      wxWindow:destroy(Frame),  %closes the window
+      ok;  % we exit the loop
 
     % Clicking Exit button
     #wx{id=?wxID_EXIT, event=#wxCommand{type=command_button_clicked}} ->
       io:format("~p Clicked button 'Exit' ~n",[self()]),
       io:format("~p Closing window ~n",[self()]),
-      wxWindow:destroy(Frame),
-      ok;
+      %now we use the reference to Frame
+      wxWindow:destroy(Frame),  %closes the window
+      ok;  % we exit the loop
 
     #wx{id=101, event=#wxCommand{type=command_button_clicked}} ->
       io:format("~p Clicked button 'Send' ~n",[self()]),
@@ -116,7 +121,7 @@ loop(Frame) ->
 
     % Another event (unhandled)
     Msg ->
-      io:format("Got unhandled event! : ~p ~n", [Msg]),
+      io:format("Got unhandled event! : ~n ~p ~n", [Msg]),
       loop(Frame)
   end.
 
