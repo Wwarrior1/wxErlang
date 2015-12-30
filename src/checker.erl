@@ -18,10 +18,11 @@
 %%tworzę funkcję send/0 która będzie naszym triggerem gdy przycisk send! jest jest wciśnięty
 start() ->
   Window = wx:new(),  % Window will be the parent for the Frame
-  Frame = wx:batch(fun() -> make_window(Window) end),     % wx:batch() - Improves performance of the command processing by grabbing the wxWidgets thread so that no event processing will be done before the complete batch of commands is invoked.
-  wxWindow:show(Frame),
-  loop(Frame),
-  wx:destroy(),       % gdy opuscimy petle - zakoncz program
+  State = wx:batch(fun() -> make_window(Window) end),     % wx:batch() - Improves performance of the command processing
+  %% by grabbing the wxWidgets thread so that no event processing will be done before the complete batch of commands is invoked.
+  %% !!! w tym miejscu należałoby puścić zegar współbieżnie!!!
+  loop(State),
+  wx:destroy(),
   ok.
 
 
@@ -40,9 +41,9 @@ make_window(Window) ->
     Panel = wxPanel:new(Frame), %window
 
     % create widgets
-      Inputbox1 = wxTextCtrl:new(Panel, 1001, [{size, {410, 140}}]),     % inputbox1 i jego wymiary
-      Inputbox2 = wxTextCtrl:new(Panel, 1002, [{size, {410, 140}}]),     % inputbox2 i jego wymiary
-      Inputbox3 = wxTextCtrl:new(Panel, 1003, [{size, {410, 140}}]),     % inputbox3 i jego wymiary
+      T1001 = wxTextCtrl:new(Panel, 1001, [{size, {410, 140}}]),     % inputbox1 i jego wymiary
+      T1002 = wxTextCtrl:new(Panel, 1002, [{size, {410, 140}}]),     % inputbox2 i jego wymiary
+      T1003 = wxTextCtrl:new(Panel, 1003, [{size, {410, 140}}]),     % inputbox3 i jego wymiary
       ST2001 = wxStaticText:new(Panel, 2001,"Do końca: 10 min 0 sek", []),
 
       B102  = wxButton:new(Panel, ?wxID_EXIT, [{label, "&Exit"}]),  % button Exit
@@ -65,14 +66,14 @@ make_window(Window) ->
 
       %% Note that the widget is added using the VARIABLE, not the ID.
         %%Tutaj jest zabawa ze wsadzaniem buttonów/inputboxów w sizery i dodawanie marginesów
-        wxSizer:add(InputSizer1, Inputbox1, []),
-        wxSizer:add(InputSizer2, Inputbox2, []),
-        wxSizer:add(InputSizer3, Inputbox3, []),
+        wxSizer:add(InputSizer1, T1001, []),
+        wxSizer:add(InputSizer2, T1002, []),
+        wxSizer:add(InputSizer3, T1003, []),
         wxSizer:addSpacer(DownSizer, 5),  %spacer
         wxSizer:add(DownSizer, B101,   []),
-        wxSizer:addSpacer(DownSizer, 50),  %spacer
+        wxSizer:addSpacer(DownSizer, 20),  %spacer
         wxSizer:add(DownSizer, ST2001,   []),
-        wxSizer:addSpacer(DownSizer, 65),  %spacer
+        wxSizer:addSpacer(DownSizer, 95),  %spacer
         wxSizer:add(DownSizer, B102,   []),
         wxSizer:addSpacer(MainSizer, 20),  %spacer
         wxSizer:add(MainSizer, InputSizer1,   []),
@@ -88,16 +89,18 @@ make_window(Window) ->
 
     %% Now 'set' OuterSizer into the Panel
       wxPanel:setSizer(Panel, OuterSizer),
-
-  Frame.
+      wxFrame:show(Frame),
+  {Frame, ST2001, T1001, T1002, T1003}. %% muszę zwrócić taką krotkę żeby miec dostęp do ST2001, T1001 itd.
 
 
 %%--------------------------------------------------------------------------------------------
 %%    WARSTWA LOGICZNA
 %%--------------------------------------------------------------------------------------------
-loop(Frame) ->
+loop(State) ->
+  {Frame, ST2001, T1001, T1002, T1003} = State,
   % ----------    EVENT HANDLERS    ----------
   % ::INFO:: more about handlers here: www.erlang.org/doc/man/wxEvtHandler.html
+
   io:format("--waiting in the loop--~n", []), % optional, feedback to the shell
   receive
     % Standard closing window
@@ -117,12 +120,56 @@ loop(Frame) ->
 
     #wx{id=101, event=#wxCommand{type=command_button_clicked}} ->
       io:format("~p Clicked button 'Send' ~n",[self()]),
-      loop(Frame);
+      cntdwn(1,0, ST2001), %na razie zrobiłem tak, że gdy przycisk Send wciśnięty to odlicza 1 min
+      %%send(State),
+      loop(State);
 
     % Another event (unhandled)
     Msg ->
       io:format("Got unhandled event! : ~n ~p ~n", [Msg]),
-      loop(Frame)
-  end.
+      loop(State)
 
-send() -> ok. %zbiera wpisany tekst ze wszystkich trzech okienek a później go wysyła na meila
+  end.
+%COUNT DOWN
+cntdwn(0,0, StaticText) ->
+  io:format("Koniec"),
+  OutputStr = "Koniec - odpowiedzi zostały wysłane!",
+  wxStaticText:setLabel(StaticText, OutputStr),
+  ok;
+
+cntdwn(Min, 0, StaticText) ->
+  io:format("~w~w~n", [Min, 0]),
+  Min_str = integer_to_list(Min),
+  Sec_str = integer_to_list(0),
+  OutputStr = lists:concat([["Do końca: ", Min_str, " min ", Sec_str, " sec"]]),
+  wxStaticText:setLabel(StaticText, OutputStr),
+  receive
+  after 1000 ->
+    true
+  end,
+  cntdwn(Min-1, 59, StaticText);
+
+cntdwn(Min, Sec, StaticText) when Sec > 0 ->
+  io:format("~w~w~n", [Min, Sec]),
+  Min_str = integer_to_list(Min),
+  Sec_str = integer_to_list(Sec),
+  OutputStr = lists:concat([["Do końca: ", Min_str, " min ", Sec_str, " sec"]]),
+  wxStaticText:setLabel(StaticText, OutputStr),
+  receive
+  after 1000 ->
+    true
+  end,
+  cntdwn(Min, Sec-1, StaticText);
+
+cntdwn(_,_,StaticText) ->
+  io:format("Error"),
+  OutputStr = "An error has occured!",
+  wxStaticText:setLabel(StaticText, OutputStr),
+  ok.
+
+send(State) ->
+  {Frame, ST2001, T1001, T1002, T1003} = State,
+  T1001_str = wxTextCtrl:getValue(T1001), %tekst mamy co z nim robimy?
+  T1002_str = wxTextCtrl:getValue(T1002),
+  T1003_str = wxTextCtrl:getValue(T1003),
+ok. %zbiera wpisany tekst ze wszystkich trzech okienek a później go wysyła na meila
